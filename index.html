@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UnzipDrive - Google Drive ZIP Extractor</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0e0e0e;
+    --surface: #161616;
+    --surface2: #1e1e1e;
+    --border: #2a2a2a;
+    --border2: #383838;
+    --text: #f0f0f0;
+    --muted: #666;
+    --accent: #c8f542;
+    --accent2: #a8d420;
+    --danger: #ff4d4d;
+    --success: #4dff91;
+    --folder: #f5c542;
+    --file: #7eb8f7;
+  }
+
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'Syne', sans-serif; }
+
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    padding: 2rem 1rem;
+    background-image:
+      radial-gradient(ellipse 60% 40% at 50% -10%, rgba(200,245,66,0.08) 0%, transparent 70%);
+  }
+
+  .container { width: 100%; max-width: 780px; }
+
+  header { text-align: center; margin-bottom: 2.5rem; }
+
+  .logo { font-size: 11px; font-family: 'DM Mono', monospace; color: var(--accent); letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 1rem; }
+
+  h1 {
+    font-size: clamp(2rem, 5vw, 3rem);
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    margin-bottom: 0.75rem;
+  }
+  h1 span { color: var(--accent); }
+
+  .tagline { font-size: 14px; color: var(--muted); font-family: 'DM Mono', monospace; }
+
+  /* Drop zone */
+  .drop-zone {
+    border: 1.5px dashed var(--border2);
+    border-radius: 16px;
+    padding: 3rem 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--surface);
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+  }
+  .drop-zone::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse 80% 60% at 50% 100%, rgba(200,245,66,0.04) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .drop-zone.drag-over {
+    border-color: var(--accent);
+    background: rgba(200,245,66,0.05);
+  }
+  .drop-zone:hover { border-color: var(--border2); background: var(--surface2); }
+
+  .drop-icon {
+    font-size: 48px;
+    margin-bottom: 1rem;
+    display: block;
+    filter: grayscale(0.3);
+  }
+  .drop-title { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+  .drop-sub { font-size: 13px; color: var(--muted); font-family: 'DM Mono', monospace; margin-bottom: 1.25rem; }
+
+  .btn-select {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--accent); color: #0e0e0e;
+    border: none; border-radius: 8px;
+    padding: 10px 20px; font-size: 13px; font-weight: 700;
+    font-family: 'Syne', sans-serif;
+    cursor: pointer; letter-spacing: 0.03em;
+    transition: background 0.15s, transform 0.1s;
+  }
+  .btn-select:hover { background: var(--accent2); transform: translateY(-1px); }
+  .btn-select:active { transform: translateY(0); }
+
+  #file-input { display: none; }
+
+  /* Multi-file list */
+  .queue { margin-bottom: 1.5rem; display: flex; flex-direction: column; gap: 8px; }
+  .queue-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 16px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .queue-item .qi-name { flex: 1; font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .queue-item .qi-size { font-size: 12px; font-family: 'DM Mono', monospace; color: var(--muted); flex-shrink: 0; }
+  .qi-status { font-size: 12px; font-family: 'DM Mono', monospace; flex-shrink: 0; padding: 3px 8px; border-radius: 4px; }
+  .qi-status.pending { color: var(--muted); background: var(--surface2); }
+  .qi-status.processing { color: var(--accent); background: rgba(200,245,66,0.1); }
+  .qi-status.done { color: var(--success); background: rgba(77,255,145,0.1); }
+  .qi-status.error { color: var(--danger); background: rgba(255,77,77,0.1); }
+
+  /* Actions */
+  .actions { display: flex; gap: 10px; margin-bottom: 1.5rem; flex-wrap: wrap; }
+  .btn-main {
+    flex: 1; min-width: 160px;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 12px 20px; border-radius: 10px;
+    font-size: 14px; font-weight: 700; font-family: 'Syne', sans-serif;
+    cursor: pointer; border: 1.5px solid transparent;
+    transition: all 0.15s; letter-spacing: 0.02em;
+  }
+  .btn-main.primary { background: var(--accent); color: #0e0e0e; border-color: var(--accent); }
+  .btn-main.primary:hover { background: var(--accent2); border-color: var(--accent2); }
+  .btn-main.secondary { background: transparent; color: var(--text); border-color: var(--border2); }
+  .btn-main.secondary:hover { background: var(--surface2); }
+  .btn-main:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+
+  /* Progress */
+  .progress-wrap { margin-bottom: 1.5rem; display: none; }
+  .progress-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 13px; }
+  .progress-label { font-family: 'DM Mono', monospace; color: var(--muted); }
+  .progress-pct { font-family: 'DM Mono', monospace; color: var(--accent); font-weight: 500; }
+  .progress-bar { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.3s; width: 0%; }
+
+  /* Tree */
+  .tree-section { display: none; }
+  .tree-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .tree-title { font-size: 13px; font-family: 'DM Mono', monospace; color: var(--muted); text-transform: uppercase; letter-spacing: 0.12em; }
+  .tree-stats { font-size: 12px; font-family: 'DM Mono', monospace; color: var(--accent); }
+
+  .tree-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    max-height: 320px;
+    overflow-y: auto;
+    margin-bottom: 1.5rem;
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    line-height: 1.7;
+  }
+  .tree-box::-webkit-scrollbar { width: 4px; }
+  .tree-box::-webkit-scrollbar-track { background: transparent; }
+  .tree-box::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  .tree-folder { color: var(--folder); }
+  .tree-file { color: var(--file); }
+  .tree-zip-root { color: var(--accent); font-weight: 600; }
+  .tree-indent { display: inline-block; }
+
+  /* Download section */
+  .dl-section { display: none; }
+
+
+  .dl-methods { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+  .dl-method-btn {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    padding: 14px 10px; border-radius: 10px;
+    font-family: 'Syne', sans-serif; cursor: pointer; transition: all 0.15s;
+    border: 1.5px solid var(--border2); background: var(--surface);
+  }
+  .dl-method-btn:hover { border-color: var(--accent); background: rgba(200,245,66,0.05); }
+  .dl-method-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .dl-method-btn .dm-icon { font-size: 24px; }
+  .dl-method-btn .dm-title { font-size: 13px; font-weight: 700; color: var(--text); }
+  .dl-method-btn .dm-sub { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; text-align: center; line-height: 1.4; }
+  .dl-method-btn.recommended { border-color: var(--accent); background: rgba(200,245,66,0.06); }
+  .badge { display: inline-block; font-size: 9px; font-family: 'DM Mono', monospace; background: var(--accent); color: #0e0e0e; border-radius: 3px; padding: 1px 5px; font-weight: 700; letter-spacing: 0.05em; }
+
+  .save-progress {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px 16px; margin-bottom: 12px; display: none;
+  }
+  .save-progress .sp-label { font-size: 13px; font-family: 'DM Mono', monospace; color: var(--muted); margin-bottom: 8px; }
+  .save-progress .sp-bar { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+  .save-progress .sp-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.2s; }
+
+  .info-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 10px 10px 0;
+    padding: 12px 16px;
+    font-size: 13px; font-family: 'DM Mono', monospace;
+    color: var(--muted); line-height: 1.6;
+    margin-bottom: 1.5rem;
+  }
+  .info-box strong { color: var(--text); }
+
+  /* Ad/Donation Section */
+  .ad-container {
+    margin: 2rem 0;
+    padding: 1rem;
+    background: var(--surface);
+    border: 1px dashed var(--border);
+    border-radius: 12px;
+    text-align: center;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+  }
+  .ad-container a { color: var(--accent); text-decoration: none; font-weight: bold; }
+  .ad-container a:hover { color: var(--accent2); text-decoration: underline; }
+
+  footer { text-align: center; font-size: 11px; font-family: 'DM Mono', monospace; color: #333; margin-top: 2rem; }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="logo">▸ Google Drive Tool</div>
+    <h1>Unzip<span>Drive</span></h1>
+    <p class="tagline">// Restore folder structure from ZIP</p>
+  </header>
+
+  <div class="info-box">
+    <strong>How to use:</strong> When you download multiple files/folders from Google Drive, they often get split into chaotic ZIP files. Drop those ZIP files here to seamlessly restore your original folder structure. Multiple ZIPs can be loaded at once.
+  </div>
+
+  <div class="drop-zone" id="drop-zone">
+    <span class="drop-icon">📦</span>
+    <div class="drop-title">Drop ZIP files here</div>
+    <div class="drop-sub">// Select .zip files downloaded from Google Drive</div>
+    <button class="btn-select" onclick="document.getElementById('file-input').click()">
+      + Select Files
+    </button>
+    <input type="file" id="file-input" accept=".zip" multiple />
+  </div>
+
+  <div class="queue" id="queue"></div>
+
+  <div class="actions" id="actions" style="display:none">
+    <button class="btn-main primary" id="btn-parse" onclick="parseAll()">▶ Extract</button>
+    <button class="btn-main secondary" onclick="reset()">✕ Reset</button>
+  </div>
+
+  <div class="progress-wrap" id="progress-wrap">
+    <div class="progress-header">
+      <span class="progress-label" id="progress-label">Extracting...</span>
+      <span class="progress-pct" id="progress-pct">0%</span>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+  </div>
+
+  <div class="tree-section" id="tree-section">
+    <div class="tree-header">
+      <span class="tree-title">// File Tree</span>
+      <span class="tree-stats" id="tree-stats"></span>
+    </div>
+    <div class="tree-box" id="tree-box"></div>
+  </div>
+
+  <!-- AdSense / Donation Banner Placeholder -->
+  <div class="ad-container">
+    <!-- Replace this text with your Google AdSense code or Buy Me a Coffee button -->
+    <span>Like this tool? <a href="https://www.buymeacoffee.com/YOUR_USERNAME" target="_blank">☕ Buy me a coffee</a> to support development!</span>
+  </div>
+
+  <div class="dl-section" id="dl-section">
+    <div class="tree-header">
+      <span class="tree-title">// Save Options</span>
+    </div>
+
+    <div class="save-progress" id="save-progress">
+      <div class="sp-label" id="sp-label">Saving...</div>
+      <div class="sp-bar"><div class="sp-fill" id="sp-fill" style="width:0%"></div></div>
+    </div>
+
+    <div class="dl-methods">
+      <button class="dl-method-btn recommended" id="btn-folder-save" onclick="saveToFolder()">
+        <span class="dm-icon">📂</span>
+        <span class="dm-title">Save to Folder <span class="badge">Recommended</span></span>
+        <span class="dm-sub">Select a destination folder to natively restore the structure</span>
+      </button>
+      <button class="dl-method-btn" id="btn-rezip" onclick="downloadAsZip()">
+        <span class="dm-icon">📦</span>
+        <span class="dm-title">Save as One ZIP</span>
+        <span class="dm-sub">Repack everything into a single structured ZIP<br>(Supports all browsers)</span>
+      </button>
+    </div>
+  </div>
+
+  <footer>// 100% Client-side · No servers · Your files never leave your device</footer>
+</div>
+
+<script>
+let zipFiles = [];
+let parsedEntries = []; // {zipName, path, blob, size}
+
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+const queueEl = document.getElementById('queue');
+const actionsEl = document.getElementById('actions');
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  handleFiles([...e.dataTransfer.files]);
+});
+fileInput.addEventListener('change', () => handleFiles([...fileInput.files]));
+
+function handleFiles(files) {
+  const zips = files.filter(f => f.name.endsWith('.zip'));
+  if (!zips.length) return alert('Please select valid ZIP files.');
+  zips.forEach(f => {
+    if (!zipFiles.find(z => z.name === f.name && z.size === f.size)) {
+      zipFiles.push(f);
+    }
+  });
+  renderQueue();
+  actionsEl.style.display = 'flex';
+}
+
+function renderQueue() {
+  queueEl.innerHTML = zipFiles.map((f, i) => `
+    <div class="queue-item" id="qi-${i}">
+      <span style="font-size:20px">📦</span>
+      <span class="qi-name">${f.name}</span>
+      <span class="qi-size">${fmtSize(f.size)}</span>
+      <span class="qi-status pending" id="qi-status-${i}">Pending</span>
+    </div>
+  `).join('');
+}
+
+function fmtSize(b) {
+  if (b < 1024) return b + ' B';
+  if (b < 1048576) return (b/1024).toFixed(1) + ' KB';
+  return (b/1048576).toFixed(1) + ' MB';
+}
+
+async function parseAll() {
+  parsedEntries = [];
+  document.getElementById('btn-parse').disabled = true;
+  document.getElementById('progress-wrap').style.display = 'block';
+  document.getElementById('tree-section').style.display = 'none';
+  document.getElementById('dl-section').style.display = 'none';
+
+  for (let i = 0; i < zipFiles.length; i++) {
+    setQiStatus(i, 'processing', 'Extracting');
+    setProgress(`${zipFiles[i].name} Extracting...`, Math.round((i / zipFiles.length) * 60));
+    try {
+      const zip = await JSZip.loadAsync(zipFiles[i]);
+      const entries = Object.values(zip.files).filter(f => !f.dir);
+      for (const entry of entries) {
+        const blob = await entry.async('blob');
+        parsedEntries.push({
+          zipName: zipFiles[i].name.replace(/\.zip$/i, ''),
+          path: entry.name,
+          blob,
+          size: blob.size
+        });
+      }
+      setQiStatus(i, 'done', 'Done');
+    } catch(e) {
+      setQiStatus(i, 'error', 'Error');
+    }
+    setProgress(`Done: ${i+1}/${zipFiles.length}`, Math.round(((i+1) / zipFiles.length) * 100));
+  }
+
+  setProgress('Done', 100);
+  setTimeout(() => { document.getElementById('progress-wrap').style.display = 'none'; }, 600);
+  renderTree();
+  renderDownloads();
+  document.getElementById('btn-parse').disabled = false;
+}
+
+function setQiStatus(i, cls, text) {
+  const el = document.getElementById(`qi-status-${i}`);
+  if (el) { el.className = `qi-status ${cls}`; el.textContent = text; }
+}
+
+function setProgress(label, pct) {
+  document.getElementById('progress-label').textContent = label;
+  document.getElementById('progress-pct').textContent = pct + '%';
+  document.getElementById('progress-fill').style.width = pct + '%';
+}
+
+function renderTree() {
+  const treeSection = document.getElementById('tree-section');
+  const treeBox = document.getElementById('tree-box');
+  treeSection.style.display = 'block';
+
+  function makeNode() { return { dirs: {}, files: [] }; }
+  function insert(root, parts) {
+    let cur = root;
+    for (let i = 0; i < parts.length - 1; i++) {
+      if (!cur.dirs[parts[i]]) cur.dirs[parts[i]] = makeNode();
+      cur = cur.dirs[parts[i]];
+    }
+    if (parts[parts.length - 1]) cur.files.push(parts[parts.length - 1]);
+  }
+
+  let html = '';
+  function walk(node, prefix) {
+    const dirs  = Object.keys(node.dirs).sort((a,b) => a.localeCompare(b, 'en'));
+    const files = [...node.files].sort((a,b) => a.localeCompare(b, 'en'));
+    const all   = [...dirs.map(d => ({n:d, isDir:true})), ...files.map(f => ({n:f, isDir:false}))];
+    all.forEach(function({n, isDir}, idx) {
+      const last = idx === all.length - 1;
+      const conn = last ? '└─ ' : '├─ ';
+      const next = last ? '    ' : '│   ';
+      if (isDir) {
+        html += '<div><span class="tree-indent">' + prefix + conn + '</span><span class="tree-folder">📁 ' + n + '/</span></div>';
+        walk(node.dirs[n], prefix + next);
+      } else {
+        html += '<div><span class="tree-indent">' + prefix + conn + '</span><span class="tree-file">📄 ' + n + '</span></div>';
+      }
+    });
+  }
+
+  if (zipFiles.length > 1) {
+    const byZip = {};
+    parsedEntries.forEach(function(e) {
+      if (!byZip[e.zipName]) byZip[e.zipName] = makeNode();
+      const parts = e.path.split('/').filter(Boolean);
+      if (parts.length) insert(byZip[e.zipName], parts);
+    });
+    Object.keys(byZip).sort().forEach(function(zn) {
+      html += '<div><span class="tree-zip-root">▸ ' + zn + '.zip</span></div>';
+      walk(byZip[zn], '  ');
+    });
+  } else {
+    const root = makeNode();
+    parsedEntries.forEach(function(e) {
+      const parts = e.path.split('/').filter(Boolean);
+      if (parts.length) insert(root, parts);
+    });
+    walk(root, '');
+  }
+
+  treeBox.innerHTML = html || '<span style="color:var(--muted)">(No files)</span>';
+
+  const folders = new Set();
+  parsedEntries.forEach(function(e) {
+    const parts = e.path.split('/').filter(Boolean);
+    parts.slice(0, -1).forEach(function(_, i) { folders.add(parts.slice(0, i+1).join('/')); });
+  });
+  document.getElementById('tree-stats').textContent = parsedEntries.length + ' files · ' + folders.size + ' folders';
+}
+
+function renderDownloads() {
+  document.getElementById('dl-section').style.display = 'block';
+}
+
+function sanitizeName(name) {
+  return name
+    .replace(/[<>:"/\\|?*\x00-\x1f]/g, '_')
+    .replace(/:/g, '_')
+    .replace(/^[\s.]+|[\s.]+$/g, '')
+    .replace(/^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$/i, '_$1')
+    || '_unnamed';
+}
+
+function sanitizePath(path) {
+  return path
+    .split('/')
+    .map(p => p ? sanitizeName(p) : null)
+    .filter(Boolean);
+}
+
+function setSaveProgress(label, pct, show = true) {
+  const el = document.getElementById('save-progress');
+  el.style.display = show ? 'block' : 'none';
+  document.getElementById('sp-label').textContent = label;
+  document.getElementById('sp-fill').style.width = pct + '%';
+}
+
+async function saveToFolder() {
+  if (!window.showDirectoryPicker) {
+    alert('This browser does not support folder saving.\nPlease use Google Chrome or try "Save as One ZIP".');
+    return;
+  }
+
+  const btn = document.getElementById('btn-folder-save');
+  btn.disabled = true;
+  setSaveProgress('Selecting destination...', 0);
+
+  async function pickDirectory() {
+    const opts = { mode: 'readwrite', startIn: 'desktop' };
+    try {
+      return await window.showDirectoryPicker(opts);
+    } catch (e) {
+      if (e.name === 'AbortError') throw e;
+      try {
+        return await window.showDirectoryPicker({ mode: 'readwrite', startIn: 'downloads' });
+      } catch (e2) {
+        if (e2.name === 'AbortError') throw e2;
+        return await window.showDirectoryPicker({ mode: 'readwrite' });
+      }
+    }
+  }
+
+  try {
+    const dirHandle = await pickDirectory();
+    setSaveProgress('Saving files...', 0);
+    let count = 0, skipped = 0;
+
+    const targets = parsedEntries.filter(e => {
+      const p = e.path;
+      if (p.startsWith('__MACOSX/') || p.includes('/__MACOSX/')) return false;
+      if (p.endsWith('.DS_Store')) return false;
+      if (p.toLowerCase().endsWith('thumbs.db')) return false;
+      if (p.toLowerCase().endsWith('desktop.ini')) return false;
+      const base = p.split('/').pop();
+      if (base && base.startsWith('._')) return false;
+      return true;
+    });
+
+    for (const entry of targets) {
+      const parts = sanitizePath(entry.path);
+      if (parts.length === 0) { skipped++; continue; }
+      let current = dirHandle;
+      try {
+        for (let i = 0; i < parts.length - 1; i++) {
+          current = await current.getDirectoryHandle(parts[i], { create: true });
+        }
+        const fileHandle = await current.getFileHandle(parts[parts.length - 1], { create: true });
+        const writable = await fileHandle.createWritable();
+        await writable.write(entry.blob);
+        await writable.close();
+      } catch (fileErr) {
+        console.warn('Skip:', entry.path, fileErr.message);
+        skipped++;
+        continue;
+      }
+      count++;
+      setSaveProgress(`Saving... ${count} / ${targets.length} files`, Math.round(count / targets.length * 100));
+    }
+
+    setSaveProgress('', 0, false);
+
+  } catch (e) {
+    if (e.name === 'AbortError') {
+      setSaveProgress('', 0, false);
+    } else {
+      setSaveProgress('Error: ' + e.message, 0);
+      console.error(e);
+    }
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function downloadAsZip() {
+  const btn = document.getElementById('btn-rezip');
+  btn.disabled = true;
+  setSaveProgress('Creating ZIP...', 0);
+
+  try {
+    const zip = new JSZip();
+    let count = 0;
+    for (const entry of parsedEntries) {
+      zip.file(entry.path, entry.blob);
+      count++;
+      setSaveProgress(`Adding... ${count} / ${parsedEntries.length}`, Math.round(count / parsedEntries.length * 60));
+    }
+
+    setSaveProgress('Compressing...', 70);
+    const zipBlob = await zip.generateAsync(
+      { type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } },
+      (meta) => setSaveProgress(`Compressing... ${Math.round(meta.percent)}%`, 70 + meta.percent * 0.3)
+    );
+
+    setSaveProgress('Starting download...', 100);
+    const name = zipFiles.length === 1
+      ? zipFiles[0].name.replace(/\.zip$/i, '') + '_extracted.zip'
+      : 'extracted.zip';
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(zipBlob);
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); document.body.removeChild(a); }, 500);
+
+    setSaveProgress(`✓ ${name} downloaded`, 100);
+    setTimeout(() => setSaveProgress('', 0, false), 3000);
+  } catch (e) {
+    setSaveProgress('Error: ' + e.message, 0);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function reset() {
+  zipFiles = [];
+  parsedEntries = [];
+  queueEl.innerHTML = '';
+  actionsEl.style.display = 'none';
+  document.getElementById('tree-section').style.display = 'none';
+  document.getElementById('dl-section').style.display = 'none';
+  document.getElementById('progress-wrap').style.display = 'none';
+  fileInput.value = '';
+}
+</script>
+</body>
+</html>
