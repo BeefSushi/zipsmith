@@ -217,16 +217,35 @@
   /* Ad/ Section */
   .ad-container {
     margin: 2rem 0;
-    padding: 1rem;
+    padding: 1.2rem;
     background: var(--surface);
     border: 1px dashed var(--border);
     border-radius: 12px;
-    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+  .ad-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    max-width: 100%;
+    overflow: hidden;
+  }
+  .ad-wrapper img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    border-radius: 4px;
+  }
+  .bmc-link-wrap {
     font-family: 'DM Mono', monospace;
     font-size: 12px;
+    color: var(--muted);
   }
-  .ad-container a { color: var(--accent); text-decoration: none; font-weight: bold; }
-  .ad-container a:hover { color: var(--accent2); text-decoration: underline; }
+  .bmc-link-wrap a { color: var(--accent); text-decoration: none; font-weight: bold; }
+  .bmc-link-wrap a:hover { color: var(--accent2); text-decoration: underline; }
 
   footer { text-align: center; font-size: 11px; font-family: 'DM Mono', monospace; color: #333; margin-top: 2rem; }
 </style>
@@ -276,10 +295,17 @@
     <div class="tree-box" id="tree-box"></div>
   </div>
 
-  <!-- AdSense / Banner Placeholder -->
+  <!-- Ad/Banner Section -->
   <div class="ad-container">
-    <!-- Replace this text with your Google AdSense code or Buy Me a Coffee button -->
-    <span>Like this tool? <a href="https://buymeacoffee.com/beefsushi" target="_blank">☕ Buy me a coffee</a> to support development!</span>
+    <div class="ad-wrapper">
+      <!-- NordVPN A8.net Banner Code -->
+      <a href="https://px.a8.net/svt/ejp?a8mat=4B5OO3+98TBXU+3YFI+626XT" rel="nofollow">
+      <img border="0" width="320" height="50" alt="" src="https://www27.a8.net/svt/bgt?aid=260605731559&wid=001&eno=01&mid=s00000018459001018000&mc=1"></a>
+      <img border="0" width="1" height="1" src="https://www17.a8.net/svt/0.gif?a8mat=4B5OO3+98TBXU+3YFI+626XT" alt="">
+    </div>
+    <div class="bmc-link-wrap">
+      <span>Like this tool? <a href="https://buymeacoffee.com/beefsushi" target="_blank">Support on Buy Me a Coffee ☕</a></span>
+    </div>
   </div>
 
   <div class="dl-section" id="dl-section">
@@ -616,7 +642,7 @@ function reset() {
   actionsEl.style.display = 'none';
   document.getElementById('tree-section').style.display = 'none';
   document.getElementById('dl-section').style.display = 'none';
-  document.getElementById('progress-wrap').style.display = 'none';
+  document.getElementById('border-wrap').style.display = 'none';
   fileInput.value = '';
 }
 </script>
