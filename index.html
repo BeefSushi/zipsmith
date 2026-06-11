@@ -178,7 +178,6 @@
   /* Download section */
   .dl-section { display: none; }
 
-
   .dl-methods { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
   .dl-method-btn {
     display: flex; flex-direction: column; align-items: center; gap: 6px;
@@ -214,38 +213,54 @@
   }
   .info-box strong { color: var(--text); }
 
-  /* Ad/ Section */
-  .ad-container {
-    margin: 2rem 0;
-    padding: 1.2rem;
-    background: var(--surface);
-    border: 1px dashed var(--border);
+  /* 新設：X (Twitter) 開発者リダイレクトセクション */
+  .developer-card {
+    margin: 2.5rem 0;
+    padding: 1.5rem;
+    background: linear-gradient(135deg, var(--surface) 0%, #1a1a1a 100%);
+    border: 1px solid var(--border);
+    border-top: 2px solid var(--accent);
     border-radius: 12px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 12px;
+    text-align: center;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
   }
-  .ad-wrapper {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    max-width: 100%;
-    overflow: hidden;
-  }
-  .ad-wrapper img {
-    max-width: 100%;
-    height: auto;
-    display: block;
-    border-radius: 4px;
-  }
-  .bmc-link-wrap {
-    font-family: 'DM Mono', monospace;
+  .dev-title {
     font-size: 12px;
-    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    color: var(--accent);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
   }
-  .bmc-link-wrap a { color: var(--accent); text-decoration: none; font-weight: bold; }
-  .bmc-link-wrap a:hover { color: var(--accent2); text-decoration: underline; }
+  .dev-text {
+    font-size: 14px;
+    color: var(--text);
+    line-height: 1.6;
+    margin-bottom: 1.25rem;
+  }
+  .dev-text span {
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .btn-x-follow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: transparent;
+    color: var(--text);
+    border: 1.5px solid var(--border2);
+    border-radius: 8px;
+    padding: 10px 24px;
+    font-size: 13px;
+    font-weight: 700;
+    text-decoration: none;
+    transition: all 0.2s ease;
+  }
+  .btn-x-follow:hover {
+    border-color: var(--accent);
+    background: rgba(200,245,66,0.05);
+    transform: translateY(-1px);
+  }
 
   footer { text-align: center; font-size: 11px; font-family: 'DM Mono', monospace; color: #333; margin-top: 2rem; }
 </style>
@@ -255,8 +270,7 @@
   <header>
     <div class="logo">▸ Google Drive Tool</div>
     <h1>Unzip<span>Drive</span></h1>
-    <p class="tagline">// Restore folder structure from ZIP</p>
-  </header>
+    <p class="tagline">// Restore folder structure from ZIP</p>  </header>
 
   <div class="info-box">
     <strong>How to use:</strong> When you download multiple files/folders from Google Drive, they often get split into chaotic ZIP files. Drop those ZIP files here to seamlessly restore your original folder structure. Multiple ZIPs can be loaded at once.
@@ -295,17 +309,14 @@
     <div class="tree-box" id="tree-box"></div>
   </div>
 
-  <!-- Ad/Banner Section -->
-  <div class="ad-container">
-    <div class="ad-wrapper">
-      <!-- NordVPN A8.net Banner Code -->
-      <a href="https://px.a8.net/svt/ejp?a8mat=4B5OO3+98TBXU+3YFI+626XT" rel="nofollow">
-      <img border="0" width="320" height="50" alt="" src="https://www27.a8.net/svt/bgt?aid=260605731559&wid=001&eno=01&mid=s00000018459001018000&mc=1"></a>
-      <img border="0" width="1" height="1" src="https://www17.a8.net/svt/0.gif?a8mat=4B5OO3+98TBXU+3YFI+626XT" alt="">
-    </div>
-    <div class="bmc-link-wrap">
-      <span>Like this tool? <a href="https://buymeacoffee.com/beefsushi" target="_blank">Support on Buy Me a Coffee ☕</a></span>
-    </div>
+  <div class="developer-card">
+    <div class="dev-title">// Project Info</div>
+    <p class="dev-text">
+      This tool was co-created by a <span>VFX Artist</span> and <span>Claude (AI)</span> to kill the annoying Google Drive split-ZIP issue. If this saved your time, support the project by following on X!
+    </p>
+    <a href="https://x.com/nisimu11" target="_blank" class="btn-x-follow">
+      <span style="font-family: sans-serif;">𝕏</span> Follow the Creator
+    </a>
   </div>
 
   <div class="dl-section" id="dl-section">
