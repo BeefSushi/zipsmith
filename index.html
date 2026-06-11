@@ -261,6 +261,49 @@
     transform: translateY(-1px);
   }
 
+  /* Folder guide modal */
+  .guide-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 100;
+    align-items: center; justify-content: center;
+    padding: 1rem;
+  }
+  .guide-overlay.show { display: flex; }
+  .guide-modal {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 14px;
+    padding: 1.75rem;
+    max-width: 420px;
+    width: 100%;
+    text-align: center;
+  }
+  .guide-icon { font-size: 40px; margin-bottom: 0.75rem; }
+  .guide-title { font-size: 16px; font-weight: 700; margin-bottom: 0.75rem; }
+  .guide-steps {
+    text-align: left;
+    font-size: 13px;
+    font-family: 'DM Mono', monospace;
+    color: var(--muted);
+    line-height: 2;
+    margin-bottom: 1.25rem;
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 12px 16px;
+  }
+  .guide-steps b { color: var(--accent); font-weight: 500; }
+  .guide-btn {
+    width: 100%;
+    background: var(--accent); color: #0e0e0e;
+    border: none; border-radius: 8px;
+    padding: 12px; font-size: 14px; font-weight: 700;
+    font-family: 'Syne', sans-serif;
+    cursor: pointer; transition: background 0.15s;
+  }
+  .guide-btn:hover { background: var(--accent2); }
+
   footer { text-align: center; font-size: 11px; font-family: 'DM Mono', monospace; color: #333; margin-top: 2rem; }
 </style>
 </head>
@@ -319,16 +362,11 @@
       <div class="sp-bar"><div class="sp-fill" id="sp-fill" style="width:0%"></div></div>
     </div>
 
-    <div class="dl-methods">
+    <div class="dl-methods" style="grid-template-columns:1fr">
       <button class="dl-method-btn recommended" id="btn-folder-save" onclick="saveToFolder()">
         <span class="dm-icon">📂</span>
-        <span class="dm-title">Save to Folder <span class="badge">Recommended</span></span>
-        <span class="dm-sub">Select a destination folder to natively restore the structure</span>
-      </button>
-      <button class="dl-method-btn" id="btn-rezip" onclick="downloadAsZip()">
-        <span class="dm-icon">📦</span>
-        <span class="dm-title">Save as One ZIP</span>
-        <span class="dm-sub">Repack everything into a single structured ZIP<br>(Supports all browsers)</span>
+        <span class="dm-title">Save to Folder</span>
+        <span class="dm-sub">Select a destination folder to natively restore the structure (Chrome / Edge)</span>
       </button>
     </div>
   </div>
@@ -344,6 +382,20 @@
   </div>
 
   <footer>// 100% Client-side · No servers · Your files never leave your device</footer>
+</div>
+
+<div class="guide-overlay" id="guide-overlay">
+  <div class="guide-modal">
+    <div class="guide-icon">📂</div>
+    <div class="guide-title">Create a New Folder to Save Into</div>
+    <div class="guide-steps">
+      1. A folder picker will open<br>
+      2. Click <b>"New Folder"</b> in the dialog<br>
+      3. Name it &amp; select that <b>empty folder</b><br>
+      <span style="font-size:11px">* Picking a folder with existing files may be blocked by Chrome</span>
+    </div>
+    <button class="guide-btn" onclick="proceedToPicker()">Got it — Choose Folder</button>
+  </div>
 </div>
 
 <script>
@@ -530,11 +582,17 @@ function setSaveProgress(label, pct, show = true) {
   document.getElementById('sp-fill').style.width = pct + '%';
 }
 
-async function saveToFolder() {
+function saveToFolder() {
   if (!window.showDirectoryPicker) {
-    alert('This browser does not support folder saving.\nPlease use Google Chrome or try "Save as One ZIP".');
+    alert('This browser does not support folder saving.\nPlease use Google Chrome or Microsoft Edge.');
     return;
   }
+  // ガイドモーダルを表示（ピッカーはユーザーがOKを押してから）
+  document.getElementById('guide-overlay').classList.add('show');
+}
+
+async function proceedToPicker() {
+  document.getElementById('guide-overlay').classList.remove('show');
 
   const btn = document.getElementById('btn-folder-save');
   btn.disabled = true;
@@ -606,45 +664,7 @@ async function saveToFolder() {
   }
 }
 
-async function downloadAsZip() {
-  const btn = document.getElementById('btn-rezip');
-  btn.disabled = true;
-  setSaveProgress('Creating ZIP...', 0);
 
-  try {
-    const zip = new JSZip();
-    let count = 0;
-    for (const entry of parsedEntries) {
-      zip.file(entry.path, entry.blob);
-      count++;
-      setSaveProgress(`Adding... ${count} / ${parsedEntries.length}`, Math.round(count / parsedEntries.length * 60));
-    }
-
-    setSaveProgress('Compressing...', 70);
-    const zipBlob = await zip.generateAsync(
-      { type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } },
-      (meta) => setSaveProgress(`Compressing... ${Math.round(meta.percent)}%`, 70 + meta.percent * 0.3)
-    );
-
-    setSaveProgress('Starting download...', 100);
-    const name = zipFiles.length === 1
-      ? zipFiles[0].name.replace(/\.zip$/i, '') + '_extracted.zip'
-      : 'extracted.zip';
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(zipBlob);
-    a.download = name;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => { URL.revokeObjectURL(a.href); document.body.removeChild(a); }, 500);
-
-    setSaveProgress(`✓ ${name} downloaded`, 100);
-    setTimeout(() => setSaveProgress('', 0, false), 3000);
-  } catch (e) {
-    setSaveProgress('Error: ' + e.message, 0);
-  } finally {
-    btn.disabled = false;
-  }
-}
 
 function reset() {
   zipFiles = [];
