@@ -213,13 +213,12 @@
   }
   .info-box strong { color: var(--text); }
 
-  /* 新設：X (Twitter) 開発者リダイレクトセクション */
+  /* X (Twitter) developer card */
   .developer-card {
     margin: 2.5rem 0;
     padding: 1.5rem;
     background: linear-gradient(135deg, var(--surface) 0%, #1a1a1a 100%);
     border: 1px solid var(--border);
-    border-top: 2px solid var(--accent);
     border-radius: 12px;
     text-align: center;
     box-shadow: 0 10px 30px rgba(0,0,0,0.5);
@@ -270,7 +269,8 @@
   <header>
     <div class="logo">▸ Google Drive Tool</div>
     <h1>Unzip<span>Drive</span></h1>
-    <p class="tagline">// Restore folder structure from ZIP</p>  </header>
+    <p class="tagline">// Restore folder structure from ZIP</p>
+  </header>
 
   <div class="info-box">
     <strong>How to use:</strong> When you download multiple files/folders from Google Drive, they often get split into chaotic ZIP files. Drop those ZIP files here to seamlessly restore your original folder structure. Multiple ZIPs can be loaded at once.
@@ -309,15 +309,6 @@
     <div class="tree-box" id="tree-box"></div>
   </div>
 
-  <div class="developer-card">
-    <p class="dev-text">
-      This tool was co-created by a <span>VFX Artist</span> and <span>Claude (AI)</span> to kill the annoying Google Drive split-ZIP issue.<br>If this saved your time, support the project by following on X!
-    </p>
-    <a href="https://x.com/nisimu11" target="_blank" class="btn-x-follow">
-      <span style="font-family: sans-serif;">𝕏</span> Follow the Creator
-    </a>
-  </div>
-
   <div class="dl-section" id="dl-section">
     <div class="tree-header">
       <span class="tree-title">// Save Options</span>
@@ -342,6 +333,16 @@
     </div>
   </div>
 
+  <div class="developer-card">
+    <p class="dev-text">
+      This tool was co-created by a <span>VFX Artist</span> and <span>Claude (AI)</span> to kill the annoying Google Drive split-ZIP issue.<br>
+      If this saved your time, support the project by following on X!
+    </p>
+    <a href="https://x.com/nisimu11" target="_blank" class="btn-x-follow">
+      <span style="font-family: sans-serif;">𝕏</span> Follow the Creator
+    </a>
+  </div>
+
   <footer>// 100% Client-side · No servers · Your files never leave your device</footer>
 </div>
 
@@ -364,7 +365,7 @@ dropZone.addEventListener('drop', e => {
 fileInput.addEventListener('change', () => handleFiles([...fileInput.files]));
 
 function handleFiles(files) {
-  const zips = files.filter(f => f.name.endsWith('.zip'));
+  const zips = files.filter(f => f.name.toLowerCase().endsWith('.zip'));
   if (!zips.length) return alert('Please select valid ZIP files.');
   zips.forEach(f => {
     if (!zipFiles.find(z => z.name === f.name && z.size === f.size)) {
@@ -399,33 +400,67 @@ async function parseAll() {
   document.getElementById('tree-section').style.display = 'none';
   document.getElementById('dl-section').style.display = 'none';
 
-  for (let i = 0; i < zipFiles.length; i++) {
-    setQiStatus(i, 'processing', 'Extracting');
-    setProgress(`${zipFiles[i].name} Extracting...`, Math.round((i / zipFiles.length) * 60));
-    try {
-      const zip = await JSZip.loadAsync(zipFiles[i]);
-      const entries = Object.values(zip.files).filter(f => !f.dir);
-      for (const entry of entries) {
-        const blob = await entry.async('blob');
-        parsedEntries.push({
-          zipName: zipFiles[i].name.replace(/\.zip$/i, ''),
-          path: entry.name,
-          blob,
-          size: blob.size
-        });
-      }
-      setQiStatus(i, 'done', 'Done');
-    } catch(e) {
-      setQiStatus(i, 'error', 'Error');
-    }
-    setProgress(`Done: ${i+1}/${zipFiles.length}`, Math.round(((i+1) / zipFiles.length) * 100));
-  }
+  try {
+    const CONCURRENCY = 6;
+    let total = 0, done = 0;
 
-  setProgress('Done', 100);
-  setTimeout(() => { document.getElementById('progress-wrap').style.display = 'none'; }, 600);
-  renderTree();
-  renderDownloads();
-  document.getElementById('btn-parse').disabled = false;
+    // Load all ZIPs in parallel
+    setProgress('Loading ZIPs...', 2);
+    const loaded = await Promise.all(zipFiles.map(async (file, i) => {
+      setQiStatus(i, 'processing', 'Loading');
+      try {
+        const zip = await JSZip.loadAsync(file);
+        return { zip, file, i };
+      } catch (e) {
+        setQiStatus(i, 'error', 'Error');
+        return null;
+      }
+    }));
+
+    // Collect all entries
+    const tasks = [];
+    loaded.filter(Boolean).forEach(({ zip, file, i }) => {
+      Object.values(zip.files).forEach(zf => {
+        if (zf.dir) return;
+        tasks.push({ zf, file, i });
+        total++;
+      });
+    });
+
+    setProgress('Extracting... 0 / ' + total, 5);
+
+    // Extract in parallel batches
+    for (let i = 0; i < tasks.length; i += CONCURRENCY) {
+      const batch = tasks.slice(i, i + CONCURRENCY);
+      await Promise.all(batch.map(async ({ zf, file }) => {
+        try {
+          const blob = await zf.async('blob');
+          parsedEntries.push({
+            zipName: file.name.replace(/\.zip$/i, ''),
+            path: zf.name,
+            blob,
+            size: blob.size
+          });
+        } catch (e) {
+          console.warn('Extract failed:', zf.name, e.message);
+        }
+        done++;
+        setProgress('Extracting... ' + done + ' / ' + total, 5 + (total ? done / total * 93 : 0));
+      }));
+    }
+
+    loaded.filter(Boolean).forEach(({ i }) => setQiStatus(i, 'done', 'Done'));
+    setProgress('Done — ' + parsedEntries.length + ' files', 100);
+    setTimeout(() => { document.getElementById('progress-wrap').style.display = 'none'; }, 600);
+
+    renderTree();
+    renderDownloads();
+  } catch (err) {
+    setProgress('Error: ' + err.message, 0);
+    console.error(err);
+  } finally {
+    document.getElementById('btn-parse').disabled = false;
+  }
 }
 
 function setQiStatus(i, cls, text) {
@@ -435,8 +470,8 @@ function setQiStatus(i, cls, text) {
 
 function setProgress(label, pct) {
   document.getElementById('progress-label').textContent = label;
-  document.getElementById('progress-pct').textContent = pct + '%';
-  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('progress-pct').textContent = Math.round(pct) + '%';
+  document.getElementById('progress-fill').style.width = Math.round(pct) + '%';
 }
 
 function renderTree() {
@@ -652,7 +687,8 @@ function reset() {
   actionsEl.style.display = 'none';
   document.getElementById('tree-section').style.display = 'none';
   document.getElementById('dl-section').style.display = 'none';
-  document.getElementById('border-wrap').style.display = 'none';
+  document.getElementById('progress-wrap').style.display = 'none';
+  document.getElementById('save-progress').style.display = 'none';
   fileInput.value = '';
 }
 </script>
