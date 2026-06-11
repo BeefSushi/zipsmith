@@ -400,67 +400,33 @@ async function parseAll() {
   document.getElementById('tree-section').style.display = 'none';
   document.getElementById('dl-section').style.display = 'none';
 
-  try {
-    const CONCURRENCY = 6;
-    let total = 0, done = 0;
-
-    // Load all ZIPs in parallel
-    setProgress('Loading ZIPs...', 2);
-    const loaded = await Promise.all(zipFiles.map(async (file, i) => {
-      setQiStatus(i, 'processing', 'Loading');
-      try {
-        const zip = await JSZip.loadAsync(file);
-        return { zip, file, i };
-      } catch (e) {
-        setQiStatus(i, 'error', 'Error');
-        return null;
+  for (let i = 0; i < zipFiles.length; i++) {
+    setQiStatus(i, 'processing', 'Extracting');
+    setProgress(`${zipFiles[i].name} Extracting...`, Math.round((i / zipFiles.length) * 60));
+    try {
+      const zip = await JSZip.loadAsync(zipFiles[i]);
+      const entries = Object.values(zip.files).filter(f => !f.dir);
+      for (const entry of entries) {
+        const blob = await entry.async('blob');
+        parsedEntries.push({
+          zipName: zipFiles[i].name.replace(/\.zip$/i, ''),
+          path: entry.name,
+          blob,
+          size: blob.size
+        });
       }
-    }));
-
-    // Collect all entries
-    const tasks = [];
-    loaded.filter(Boolean).forEach(({ zip, file, i }) => {
-      Object.values(zip.files).forEach(zf => {
-        if (zf.dir) return;
-        tasks.push({ zf, file, i });
-        total++;
-      });
-    });
-
-    setProgress('Extracting... 0 / ' + total, 5);
-
-    // Extract in parallel batches
-    for (let i = 0; i < tasks.length; i += CONCURRENCY) {
-      const batch = tasks.slice(i, i + CONCURRENCY);
-      await Promise.all(batch.map(async ({ zf, file }) => {
-        try {
-          const blob = await zf.async('blob');
-          parsedEntries.push({
-            zipName: file.name.replace(/\.zip$/i, ''),
-            path: zf.name,
-            blob,
-            size: blob.size
-          });
-        } catch (e) {
-          console.warn('Extract failed:', zf.name, e.message);
-        }
-        done++;
-        setProgress('Extracting... ' + done + ' / ' + total, 5 + (total ? done / total * 93 : 0));
-      }));
+      setQiStatus(i, 'done', 'Done');
+    } catch(e) {
+      setQiStatus(i, 'error', 'Error');
     }
-
-    loaded.filter(Boolean).forEach(({ i }) => setQiStatus(i, 'done', 'Done'));
-    setProgress('Done — ' + parsedEntries.length + ' files', 100);
-    setTimeout(() => { document.getElementById('progress-wrap').style.display = 'none'; }, 600);
-
-    renderTree();
-    renderDownloads();
-  } catch (err) {
-    setProgress('Error: ' + err.message, 0);
-    console.error(err);
-  } finally {
-    document.getElementById('btn-parse').disabled = false;
+    setProgress(`Done: ${i+1}/${zipFiles.length}`, Math.round(((i+1) / zipFiles.length) * 100));
   }
+
+  setProgress('Done', 100);
+  setTimeout(() => { document.getElementById('progress-wrap').style.display = 'none'; }, 600);
+  renderTree();
+  renderDownloads();
+  document.getElementById('btn-parse').disabled = false;
 }
 
 function setQiStatus(i, cls, text) {
