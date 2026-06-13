@@ -213,54 +213,6 @@
   }
   .info-box strong { color: var(--text); }
 
-  /* X (Twitter) developer card */
-  .developer-card {
-    margin: 2.5rem 0;
-    padding: 1.5rem;
-    background: linear-gradient(135deg, var(--surface) 0%, #1a1a1a 100%);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    text-align: center;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-  }
-  .dev-title {
-    font-size: 12px;
-    font-family: 'DM Mono', monospace;
-    color: var(--accent);
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    margin-bottom: 0.5rem;
-  }
-  .dev-text {
-    font-size: 14px;
-    color: var(--text);
-    line-height: 1.6;
-    margin-bottom: 1.25rem;
-  }
-  .dev-text span {
-    color: var(--accent);
-    font-weight: 600;
-  }
-  .btn-x-follow {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    background: transparent;
-    color: var(--text);
-    border: 1.5px solid var(--border2);
-    border-radius: 8px;
-    padding: 10px 24px;
-    font-size: 13px;
-    font-weight: 700;
-    text-decoration: none;
-    transition: all 0.2s ease;
-  }
-  .btn-x-follow:hover {
-    border-color: var(--accent);
-    background: rgba(200,245,66,0.05);
-    transform: translateY(-1px);
-  }
-
   /* Folder guide modal */
   .guide-overlay {
     display: none;
@@ -304,7 +256,9 @@
   }
   .guide-btn:hover { background: var(--accent2); }
 
-  footer { text-align: center; font-size: 11px; font-family: 'DM Mono', monospace; color: #333; margin-top: 2rem; }
+  footer { text-align: center; font-size: 11px; font-family: 'DM Mono', monospace; color: #333; margin-top: 2rem; line-height: 2; }
+  footer a { color: #555; text-decoration: none; transition: color 0.15s; }
+  footer a:hover { color: var(--accent); }
 </style>
 </head>
 <body>
@@ -371,17 +325,10 @@
     </div>
   </div>
 
-  <div class="developer-card">
-    <p class="dev-text">
-      This tool was co-created by a <span>VFX Artist</span> and <span>Claude (AI)</span> to kill the annoying Google Drive split-ZIP issue.<br>
-      If this saved your time, support the project by following on X!
-    </p>
-    <a href="https://x.com/nisimu11" target="_blank" class="btn-x-follow">
-      <span style="font-family: sans-serif;">𝕏</span> Follow the Creator
-    </a>
-  </div>
-
-  <footer>// 100% Client-side · No servers · Your files never leave your device</footer>
+  <footer>
+    // Built by a VFX artist + Claude · <a href="https://x.com/nisimu11" target="_blank" rel="noopener noreferrer">𝕏 @nisimu11</a><br>
+    // 100% Client-side · No servers · Your files never leave your device
+  </footer>
 </div>
 
 <div class="guide-overlay" id="guide-overlay">
